@@ -383,7 +383,9 @@ if(WITH_CYCLES_BLENDER)
   add_subdirectory(blender)
 endif()
 
-add_subdirectory(app)
+if(NOT CYCLES_EMBEDDED)
+  add_subdirectory(app)
+endif()
 add_subdirectory(bvh)
 add_subdirectory(device)
 add_subdirectory(doc)
@@ -404,10 +406,60 @@ if(WITH_CYCLES_HYDRA_RENDER_DELEGATE OR (WITH_CYCLES_STANDALONE AND WITH_USD))
   add_subdirectory(hydra)
 endif()
 
-if(NOT WITH_BLENDER)
+if(NOT WITH_BLENDER AND NOT CYCLES_EMBEDDED)
   if(CYCLES_STANDALONE_REPOSITORY)
     delayed_do_install()
   else()
     delayed_do_install(${CMAKE_BINARY_DIR}/bin)
   endif()
+endif()
+
+# The embedding host's handle on this tree: one INTERFACE target that
+# carries everything a translation unit including Cycles headers and
+# linking Cycles needs. The external libraries already ride the
+# cycles_* libraries as PUBLIC bf::dependencies targets, so what has to
+# be gathered here is what this directory keeps to itself: the
+# add_definitions() (CCL_NAMESPACE_BEGIN and the WITH_* feature set,
+# which headers branch on), the include directories, and the SSE4.2
+# flags appended to CMAKE_CXX_FLAGS above -- Cycles requires SSE4.2 as
+# a minimum and its inline math is written against it. The per-config
+# DEBUG/NDEBUG definitions are dropped: the host has its own.
+if(CYCLES_EMBEDDED)
+  add_library(cycles_embed INTERFACE)
+
+  get_directory_property(_cycles_embed_defs COMPILE_DEFINITIONS)
+  list(FILTER _cycles_embed_defs EXCLUDE REGEX "DEBUG")
+  target_compile_definitions(cycles_embed INTERFACE ${_cycles_embed_defs})
+  unset(_cycles_embed_defs)
+
+  # This directory itself is what the headers are included relative to
+  # ("util/...", "session/..."); the libraries below add it as ".." in
+  # their own scopes, so it is not in the property and goes in by hand.
+  get_directory_property(_cycles_embed_incs INCLUDE_DIRECTORIES)
+  target_include_directories(cycles_embed INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${_cycles_embed_incs}
+  )
+  unset(_cycles_embed_incs)
+
+  if(CXX_HAS_SSE42 AND CYCLES_SSE42_FLAGS)
+    separate_arguments(_cycles_embed_sse UNIX_COMMAND "${CYCLES_SSE42_FLAGS}")
+    target_compile_options(cycles_embed INTERFACE ${_cycles_embed_sse})
+    unset(_cycles_embed_sse)
+  endif()
+
+  set(_cycles_embed_libs
+    cycles_device
+    cycles_kernel
+    cycles_scene
+    cycles_session
+    cycles_bvh
+    cycles_subd
+    cycles_graph
+    cycles_util
+    extern_sky
+  )
+  cycles_external_libraries_append(_cycles_embed_libs)
+  target_link_libraries(cycles_embed INTERFACE ${_cycles_embed_libs})
+  unset(_cycles_embed_libs)
 endif()

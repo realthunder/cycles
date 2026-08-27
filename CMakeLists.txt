@@ -71,6 +71,15 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "Generate compile commands for c
 
 project(Cycles)
 
+# Embedded build: a host project added this tree with add_subdirectory().
+# The host owns the install prefix, testing and the executable; what it
+# wants from here is the libraries, handed over as the cycles_embed
+# INTERFACE target (src/CMakeLists.txt). Declared as a cache entry
+# because cmake_minimum_required(3.10) above puts this directory on the
+# old option() behaviour, where a plain variable set by the host would
+# be clobbered by the default here; the host sets the cache entry.
+option(CYCLES_EMBEDDED "Built as a subdirectory of a host project" OFF)
+
 ###########################################################################
 # Macros and utilities.
 
@@ -87,7 +96,7 @@ include(macros)
 
 set(CMAKE_INSTALL_MESSAGE LAZY CACHE STRING "Install message verbosity")
 
-if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT AND NOT CYCLES_EMBEDDED)
   set(CMAKE_INSTALL_PREFIX "${PROJECT_SOURCE_DIR}/install" CACHE PATH "Installation path" FORCE)
 endif()
 
@@ -247,7 +256,9 @@ include(detect_platform)
 include(external_libs)
 include(dependency_targets)
 include(configure_build)
-include(CTest)
+if(NOT CYCLES_EMBEDDED)
+  include(CTest)
+endif()
 
 ###########################################################################
 # Include directories.
