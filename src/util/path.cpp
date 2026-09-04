@@ -8,6 +8,7 @@
 #include "util/md5.h"
 #include "util/set.h"
 #include "util/string.h"
+#include "util/system.h"
 #include "util/vector.h"
 
 #include <OpenImageIO/filesystem.h>
@@ -825,6 +826,20 @@ uint64_t path_modified_time(const string &path)
 bool path_remove(const string &path)
 {
   return remove(path.c_str()) == 0;
+}
+
+string path_temp_for(const string &path)
+{
+  return path + string_printf(".%llu.tmp", (unsigned long long)system_self_process_id());
+}
+
+bool path_rename(const string &from, const string &to)
+{
+  std::error_code error;
+  std::filesystem::rename(std::filesystem::u8path(from.c_str()),
+                          std::filesystem::u8path(to.c_str()),
+                          error);
+  return !error;
 }
 
 struct SourceReplaceState {

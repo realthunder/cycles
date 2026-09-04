@@ -363,6 +363,12 @@ string CUDADevice::compile_kernel(const string &common_cflags, const char *name,
 
   path_create_directories(cubin);
 
+  /* Compiled to a file of this process's own and moved into place: two
+   * devices building the same uncached kernel would otherwise have their
+   * compilers writing one path at the same time, and a torn result stays
+   * cached -- the existence check above takes any file there for a hit. */
+  const string cubin_tmp = path_temp_for(cubin);
+
   source_path = path_join(
       path_join(source_path, "kernel"),
       path_join("device", path_join(optix ? "optix" : "cuda", string_printf("%s.cu", name))));
@@ -379,7 +385,7 @@ string CUDADevice::compile_kernel(const string &common_cflags, const char *name,
       minor,
       kernel_ext,
       source_path.c_str(),
-      cubin.c_str(),
+      cubin_tmp.c_str(),
       common_cflags.c_str());
 
   LOG_INFO_IMPORTANT << "Compiling " << ((use_adaptive_compilation()) ? "adaptive " : "")
@@ -389,7 +395,13 @@ string CUDADevice::compile_kernel(const string &common_cflags, const char *name,
 #  ifdef _WIN32
   command = "call " + command;
 #  endif
-  if (system(command.c_str()) != 0) {
+  if (kernel_compile.run(command) != 0) {
+    path_remove(cubin_tmp);
+    if (kernel_compile.cancelled()) {
+      /* Not an error to report: the device was asked to stop. */
+      LOG_INFO_IMPORTANT << "CUDA kernel compilation cancelled";
+      return string();
+    }
     set_error(
         "Failed to execute compilation command, "
         "see console for details.");
@@ -397,7 +409,8 @@ string CUDADevice::compile_kernel(const string &common_cflags, const char *name,
   }
 
   /* Verify if compilation succeeded */
-  if (!path_exists(cubin)) {
+  if (!path_exists(cubin_tmp) || !path_rename(cubin_tmp, cubin)) {
+    path_remove(cubin_tmp);
     set_error(
         "CUDA kernel compilation failed, "
         "see console for details.");
@@ -408,6 +421,13 @@ string CUDADevice::compile_kernel(const string &common_cflags, const char *name,
                      << time_dt() - starttime << "s";
 
   return cubin;
+}
+
+void CUDADevice::cancel()
+{
+  /* The kernel compile is the long operation here: minutes on a cold
+   * cache, and every join of the render thread waits behind it. */
+  kernel_compile.cancel();
 }
 
 bool CUDADevice::load_kernels(const uint kernel_features)

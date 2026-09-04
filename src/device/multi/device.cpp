@@ -183,6 +183,15 @@ class MultiDevice : public Device {
     return true;
   }
 
+  void cancel() override
+  {
+    /* Every sub-device: a cancel that does not reach the one compiling
+     * its kernels cancels nothing. */
+    for (SubDevice &sub : devices) {
+      sub.device->cancel();
+    }
+  }
+
   bool load_osl_kernels() override
   {
     for (SubDevice &sub : devices) {

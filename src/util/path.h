@@ -56,6 +56,17 @@ bool path_read_compressed_text(const string &path, string &text);
 /* File manipulation. */
 bool path_remove(const string &path);
 
+/* A path beside `path`, unique to this process, to write a file that is
+ * then moved onto `path` with path_rename(). Writing the destination
+ * directly is not safe when two processes (or two devices in one) build
+ * the same cache entry at once. */
+string path_temp_for(const string &path);
+
+/* Move `from` onto `to`, replacing what is there. Atomic within a
+ * filesystem, which is what makes a half-written file impossible to
+ * observe at `to`. */
+bool path_rename(const string &from, const string &to);
+
 /* source code utility */
 string path_source_replace_includes(const string &source, const string &path);
 

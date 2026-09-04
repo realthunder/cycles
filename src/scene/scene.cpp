@@ -715,6 +715,12 @@ bool Scene::load_kernels(Progress &progress)
   const uint kernel_features = dscene.data.kernel_features;
   log_kernel_features(kernel_features);
   if (!device->load_kernels(kernel_features)) {
+    if (progress.get_cancel()) {
+      /* Asked to stop while the kernels were loading, which a device
+       * may now answer by killing its compiler: not a failure. */
+      return false;
+    }
+
     string message = device->error_message();
     if (message.empty()) {
       message = "Failed loading render kernel, see console for errors";

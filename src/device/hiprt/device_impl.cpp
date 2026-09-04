@@ -272,6 +272,10 @@ string HIPRTDevice::compile_kernel(const uint kernel_features, const char *name,
 
   double starttime = time_dt();
 
+  /* Compiled to a file of this process's own and moved into place: see
+   * the same note in the CUDA device. */
+  const string fatbin_tmp = path_temp_for(fatbin);
+
   string compile_command = string_printf("%s %s -I %s -I %s --%s %s -o \"%s\" %s",
                                          hipcc,
                                          options.c_str(),
@@ -279,7 +283,7 @@ string HIPRTDevice::compile_kernel(const uint kernel_features, const char *name,
                                          hiprt_include_path.c_str(),
                                          kernel_ext,
                                          source_path.c_str(),
-                                         fatbin.c_str(),
+                                         fatbin_tmp.c_str(),
                                          common_cflags.c_str());
 
   LOG_INFO_IMPORTANT << "Compiling " << ((use_adaptive_compilation()) ? "adaptive " : "")
@@ -288,9 +292,22 @@ string HIPRTDevice::compile_kernel(const uint kernel_features, const char *name,
 #  ifdef _WIN32
   compile_command = "call " + compile_command;
 #  endif
-  if (system(compile_command.c_str()) != 0) {
+  if (kernel_compile.run(compile_command) != 0) {
+    path_remove(fatbin_tmp);
+    if (kernel_compile.cancelled()) {
+      LOG_INFO_IMPORTANT << "HIP-RT kernel compilation cancelled";
+      return string();
+    }
     set_error(
         "Failed to execute linking command, "
+        "see console for details.");
+    return string();
+  }
+
+  if (!path_exists(fatbin_tmp) || !path_rename(fatbin_tmp, fatbin)) {
+    path_remove(fatbin_tmp);
+    set_error(
+        "HIP-RT kernel compilation failed, "
         "see console for details.");
     return string();
   }

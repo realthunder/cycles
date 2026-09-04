@@ -320,6 +320,10 @@ string HIPDevice::compile_kernel(const uint kernel_features, const char *name, c
 
   path_create_directories(fatbin);
 
+  /* Compiled to a file of this process's own and moved into place: see
+   * the same note in the CUDA device. */
+  const string fatbin_tmp = path_temp_for(fatbin);
+
   source_path = path_join(path_join(source_path, "kernel"),
                           path_join("device", path_join(base, string_printf("%s.cpp", name))));
 
@@ -329,7 +333,7 @@ string HIPDevice::compile_kernel(const uint kernel_features, const char *name, c
                                  include_path.c_str(),
                                  kernel_ext,
                                  source_path.c_str(),
-                                 fatbin.c_str(),
+                                 fatbin_tmp.c_str(),
                                  common_cflags.c_str());
 
   LOG_INFO_IMPORTANT << "Compiling " << ((use_adaptive_compilation()) ? "adaptive " : "")
@@ -338,7 +342,12 @@ string HIPDevice::compile_kernel(const uint kernel_features, const char *name, c
 #  ifdef _WIN32
   command = "call " + command;
 #  endif
-  if (system(command.c_str()) != 0) {
+  if (kernel_compile.run(command) != 0) {
+    path_remove(fatbin_tmp);
+    if (kernel_compile.cancelled()) {
+      LOG_INFO_IMPORTANT << "HIP kernel compilation cancelled";
+      return string();
+    }
     set_error(
         "Failed to execute compilation command, "
         "see console for details.");
@@ -346,7 +355,8 @@ string HIPDevice::compile_kernel(const uint kernel_features, const char *name, c
   }
 
   /* Verify if compilation succeeded */
-  if (!path_exists(fatbin)) {
+  if (!path_exists(fatbin_tmp) || !path_rename(fatbin_tmp, fatbin)) {
+    path_remove(fatbin_tmp);
     set_error(
         "HIP kernel compilation failed, "
         "see console for details.");
@@ -357,6 +367,11 @@ string HIPDevice::compile_kernel(const uint kernel_features, const char *name, c
                      << time_dt() - starttime << "s";
 
   return fatbin;
+}
+
+void HIPDevice::cancel()
+{
+  kernel_compile.cancel();
 }
 
 bool HIPDevice::load_kernels(const uint kernel_features)

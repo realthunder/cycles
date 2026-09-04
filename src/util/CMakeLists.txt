@@ -27,6 +27,7 @@ set(SRC
   path.cpp
   profiling.cpp
   string.cpp
+  subprocess.cpp
   system.cpp
   task.cpp
   thread.cpp
@@ -113,6 +114,7 @@ set(SRC_HEADERS
   static_assert.h
   stats.h
   string.h
+  subprocess.h
   system.h
   task.h
   tbb.h

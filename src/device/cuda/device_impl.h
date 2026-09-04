@@ -8,6 +8,7 @@
 #  include "device/cuda/queue.h"
 #  include "device/cuda/util.h"
 #  include "device/device.h"
+#  include "util/subprocess.h"
 
 #  ifdef WITH_CUDA_DYNLOAD
 #    include "cuew.h"
@@ -35,6 +36,10 @@ class CUDADevice : public GPUDevice {
 
   CUDADeviceKernels kernels;
 
+  /* The kernel compiler, while one runs: minutes on a cold cache, and
+   * cancel() is what stops a session teardown waiting for it. */
+  Subprocess kernel_compile;
+
   static bool have_precompiled_kernels();
 
   BVHLayoutMask get_bvh_layout_mask(uint /*kernel_features*/) const override;
@@ -56,6 +61,8 @@ class CUDADevice : public GPUDevice {
   string compile_kernel(const string &cflags, const char *name, bool optix = false);
 
   bool load_kernels(const uint kernel_features) override;
+
+  void cancel() override;
   void reserve_local_memory(const uint kernel_features);
 
   /* All memory types. */

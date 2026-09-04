@@ -7,6 +7,7 @@
 #ifdef WITH_HIP
 
 #  include "device/device.h"
+#  include "util/subprocess.h"
 #  include "device/hip/kernel.h"
 #  include "device/hip/queue.h"
 #  include "device/hip/util.h"
@@ -35,6 +36,9 @@ class HIPDevice : public GPUDevice {
 
   HIPDeviceKernels kernels;
 
+  /* The kernel compiler, while one runs (see CUDADevice). */
+  Subprocess kernel_compile;
+
   static bool have_precompiled_kernels();
 
   BVHLayoutMask get_bvh_layout_mask(uint /*kernel_features*/) const override;
@@ -56,6 +60,8 @@ class HIPDevice : public GPUDevice {
   string compile_kernel(const uint kernel_features, const char *name, const char *base = "hip");
 
   bool load_kernels(const uint kernel_features) override;
+
+  void cancel() override;
   void reserve_local_memory(const uint kernel_features);
 
   /* All memory types. */
