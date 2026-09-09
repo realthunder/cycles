@@ -46,6 +46,16 @@ if(APPLE)
   list(APPEND CMAKE_EXE_LINKER_FLAGS "-Xlinker -no_warn_duplicate_libraries")
   list(APPEND CMAKE_SHARED_LINKER_FLAGS "-Xlinker -no_warn_duplicate_libraries")
 elseif(MSVC)
+  # NOTE (FreeCAD fork): these FORCE the GLOBAL cache variables, so when
+  # cycles is built as a subproject they set the flags for the WHOLE
+  # enclosing build, not just for cycles. That is upstream behaviour --
+  # this file assumes it is the top-level project -- and it is left in
+  # place, but the /DNDEBUG below is not optional because of it: without
+  # it no configuration of the enclosing project defines NDEBUG, so
+  # assert() stays live in every translation unit, including the OCCT
+  # and Coin headers that inline into ours while those libraries were
+  # themselves compiled with NDEBUG. That is an ODR mismatch, and it
+  # silently cost FreeCAD measurable frame time before it was noticed.
   set(CMAKE_CXX_FLAGS "/nologo /J /Gd /EHsc /bigobj /MP /std:c++17 /utf-8" CACHE STRING "MSVC MD C++ flags " FORCE)
   set(CMAKE_C_FLAGS "/nologo /J /Gd /MP /bigobj /utf-8" CACHE STRING "MSVC MD C++ flags " FORCE)
 
@@ -54,17 +64,17 @@ elseif(MSVC)
   else()
     set(CMAKE_CXX_FLAGS_DEBUG "/Od /RTC1 /MDd /ZI" CACHE STRING "MSVC MD flags " FORCE)
   endif()
-  set(CMAKE_CXX_FLAGS_RELEASE "/O2 /Ob2 /MD" CACHE STRING "MSVC MD flags " FORCE)
-  set(CMAKE_CXX_FLAGS_MINSIZEREL "/O1 /Ob1 /MD" CACHE STRING "MSVC MD flags " FORCE)
-  set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/O2 /Ob1 /MD /Zi" CACHE STRING "MSVC MD flags " FORCE)
+  set(CMAKE_CXX_FLAGS_RELEASE "/O2 /Ob2 /MD /DNDEBUG" CACHE STRING "MSVC MD flags " FORCE)
+  set(CMAKE_CXX_FLAGS_MINSIZEREL "/O1 /Ob1 /MD /DNDEBUG" CACHE STRING "MSVC MD flags " FORCE)
+  set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/O2 /Ob1 /MD /Zi /DNDEBUG" CACHE STRING "MSVC MD flags " FORCE)
   if(CMAKE_CL_64)
     set(CMAKE_C_FLAGS_DEBUG "/Od /RTC1 /MDd /Zi" CACHE STRING "MSVC MD flags " FORCE)
   else()
     set(CMAKE_C_FLAGS_DEBUG "/Od /RTC1 /MDd /ZI" CACHE STRING "MSVC MD flags " FORCE)
   endif()
-  set(CMAKE_C_FLAGS_RELEASE "/O2 /Ob2 /MD" CACHE STRING "MSVC MD flags " FORCE)
-  set(CMAKE_C_FLAGS_MINSIZEREL "/O1 /Ob1 /MD" CACHE STRING "MSVC MD flags " FORCE)
-  set(CMAKE_C_FLAGS_RELWITHDEBINFO "/O2 /Ob1 /MD /Zi" CACHE STRING "MSVC MD flags " FORCE)
+  set(CMAKE_C_FLAGS_RELEASE "/O2 /Ob2 /MD /DNDEBUG" CACHE STRING "MSVC MD flags " FORCE)
+  set(CMAKE_C_FLAGS_MINSIZEREL "/O1 /Ob1 /MD /DNDEBUG" CACHE STRING "MSVC MD flags " FORCE)
+  set(CMAKE_C_FLAGS_RELWITHDEBINFO "/O2 /Ob1 /MD /Zi /DNDEBUG" CACHE STRING "MSVC MD flags " FORCE)
 
   list(APPEND PLATFORM_LINKLIBS psapi Version Dbghelp Shlwapi)
 
