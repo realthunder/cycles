@@ -46,35 +46,68 @@ if(APPLE)
   list(APPEND CMAKE_EXE_LINKER_FLAGS "-Xlinker -no_warn_duplicate_libraries")
   list(APPEND CMAKE_SHARED_LINKER_FLAGS "-Xlinker -no_warn_duplicate_libraries")
 elseif(MSVC)
-  # NOTE (FreeCAD fork): these FORCE the GLOBAL cache variables, so when
-  # cycles is built as a subproject they set the flags for the WHOLE
-  # enclosing build, not just for cycles. That is upstream behaviour --
-  # this file assumes it is the top-level project -- and it is left in
-  # place, but the /DNDEBUG below is not optional because of it: without
-  # it no configuration of the enclosing project defines NDEBUG, so
-  # assert() stays live in every translation unit, including the OCCT
-  # and Coin headers that inline into ours while those libraries were
-  # themselves compiled with NDEBUG. That is an ODR mismatch, and it
-  # silently cost FreeCAD measurable frame time before it was noticed.
-  set(CMAKE_CXX_FLAGS "/nologo /J /Gd /EHsc /bigobj /MP /std:c++17 /utf-8" CACHE STRING "MSVC MD C++ flags " FORCE)
-  set(CMAKE_C_FLAGS "/nologo /J /Gd /MP /bigobj /utf-8" CACHE STRING "MSVC MD C++ flags " FORCE)
+  # NOTE (FreeCAD fork): the else() branch below FORCEs the GLOBAL flag
+  # cache variables. That is upstream behaviour -- this file assumes it
+  # is the top-level project -- and it is right for a standalone Cycles
+  # build. It is wrong for an embedded one: as a subdirectory of a host
+  # project it sets the compiler flags for the WHOLE enclosing build.
+  # On the FreeCAD tree that cost three things, none of them intended
+  # here. CMake's own MSVC defaults (/DWIN32 /D_WINDOWS /W3 /GR) were
+  # discarded, so two "#ifdef WIN32" blocks in FreeCAD silently took
+  # their non-Windows branch. /J -- plain char UNSIGNED -- was imposed
+  # on every translation unit, while the OCCT and Coin libraries whose
+  # headers inline into them are built with signed char. And until the
+  # /DNDEBUG below, no configuration defined NDEBUG at all, so assert()
+  # stayed live against libraries compiled with it. The last two are ODR
+  # mismatches, not preferences.
+  #
+  # So under CYCLES_EMBEDDED the same flags are applied with
+  # add_compile_options(), which reaches this directory and the
+  # subdirectories added after it, and nothing else. The
+  # per-configuration strings are not reproduced: CMake's own MSVC
+  # defaults match them term for term but for /MD, which comes from
+  # CMAKE_MSVC_RUNTIME_LIBRARY instead, and NDEBUG reaches Cycles' own
+  # sources through the per-configuration directory COMPILE_DEFINITIONS
+  # property the top-level CMakeLists sets. /std:c++17 is dropped too:
+  # CMAKE_CXX_STANDARD 20 above already emits -std:c++20 after it, so on
+  # the command line it was only ever dead text.
+  #
+  # The string(APPEND CMAKE_CXX_FLAGS ...) calls further down need no
+  # such treatment -- a set() without CACHE is scoped to this directory
+  # already, which is why they never leaked and the ones above did.
+  #
+  # /J is not carried over even for Cycles itself, and that is deliberate
+  # rather than an omission. Scoping it here would only move the char
+  # mismatch rather than remove it: the host compiles its own Cycles
+  # translation units, which include these headers, and giving THEM /J
+  # would hand unsigned char to every Qt, OCCT and FreeCAD header they
+  # also include. Cycles cannot depend on it in any case -- it builds and
+  # runs on x86-64 Linux, where plain char is signed -- so dropping it
+  # leaves the whole process agreeing, which is the point of all this.
+  if(CYCLES_EMBEDDED)
+    add_compile_options(/nologo /Gd /bigobj /MP /utf-8)
+    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:/EHsc>)
+  else()
+    set(CMAKE_CXX_FLAGS "/nologo /J /Gd /EHsc /bigobj /MP /std:c++17 /utf-8" CACHE STRING "MSVC MD C++ flags " FORCE)
+    set(CMAKE_C_FLAGS "/nologo /J /Gd /MP /bigobj /utf-8" CACHE STRING "MSVC MD C++ flags " FORCE)
 
-  if(CMAKE_CL_64)
-    set(CMAKE_CXX_FLAGS_DEBUG "/Od /RTC1 /MDd /Zi" CACHE STRING "MSVC MD flags " FORCE)
-  else()
-    set(CMAKE_CXX_FLAGS_DEBUG "/Od /RTC1 /MDd /ZI" CACHE STRING "MSVC MD flags " FORCE)
+    if(CMAKE_CL_64)
+      set(CMAKE_CXX_FLAGS_DEBUG "/Od /RTC1 /MDd /Zi" CACHE STRING "MSVC MD flags " FORCE)
+    else()
+      set(CMAKE_CXX_FLAGS_DEBUG "/Od /RTC1 /MDd /ZI" CACHE STRING "MSVC MD flags " FORCE)
+    endif()
+    set(CMAKE_CXX_FLAGS_RELEASE "/O2 /Ob2 /MD /DNDEBUG" CACHE STRING "MSVC MD flags " FORCE)
+    set(CMAKE_CXX_FLAGS_MINSIZEREL "/O1 /Ob1 /MD /DNDEBUG" CACHE STRING "MSVC MD flags " FORCE)
+    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/O2 /Ob1 /MD /Zi /DNDEBUG" CACHE STRING "MSVC MD flags " FORCE)
+    if(CMAKE_CL_64)
+      set(CMAKE_C_FLAGS_DEBUG "/Od /RTC1 /MDd /Zi" CACHE STRING "MSVC MD flags " FORCE)
+    else()
+      set(CMAKE_C_FLAGS_DEBUG "/Od /RTC1 /MDd /ZI" CACHE STRING "MSVC MD flags " FORCE)
+    endif()
+    set(CMAKE_C_FLAGS_RELEASE "/O2 /Ob2 /MD /DNDEBUG" CACHE STRING "MSVC MD flags " FORCE)
+    set(CMAKE_C_FLAGS_MINSIZEREL "/O1 /Ob1 /MD /DNDEBUG" CACHE STRING "MSVC MD flags " FORCE)
+    set(CMAKE_C_FLAGS_RELWITHDEBINFO "/O2 /Ob1 /MD /Zi /DNDEBUG" CACHE STRING "MSVC MD flags " FORCE)
   endif()
-  set(CMAKE_CXX_FLAGS_RELEASE "/O2 /Ob2 /MD /DNDEBUG" CACHE STRING "MSVC MD flags " FORCE)
-  set(CMAKE_CXX_FLAGS_MINSIZEREL "/O1 /Ob1 /MD /DNDEBUG" CACHE STRING "MSVC MD flags " FORCE)
-  set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/O2 /Ob1 /MD /Zi /DNDEBUG" CACHE STRING "MSVC MD flags " FORCE)
-  if(CMAKE_CL_64)
-    set(CMAKE_C_FLAGS_DEBUG "/Od /RTC1 /MDd /Zi" CACHE STRING "MSVC MD flags " FORCE)
-  else()
-    set(CMAKE_C_FLAGS_DEBUG "/Od /RTC1 /MDd /ZI" CACHE STRING "MSVC MD flags " FORCE)
-  endif()
-  set(CMAKE_C_FLAGS_RELEASE "/O2 /Ob2 /MD /DNDEBUG" CACHE STRING "MSVC MD flags " FORCE)
-  set(CMAKE_C_FLAGS_MINSIZEREL "/O1 /Ob1 /MD /DNDEBUG" CACHE STRING "MSVC MD flags " FORCE)
-  set(CMAKE_C_FLAGS_RELWITHDEBINFO "/O2 /Ob1 /MD /Zi /DNDEBUG" CACHE STRING "MSVC MD flags " FORCE)
 
   list(APPEND PLATFORM_LINKLIBS psapi Version Dbghelp Shlwapi)
 
