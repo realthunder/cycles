@@ -912,12 +912,20 @@ const char *cuewCompilerPath(void)
     }
   }
 
-  {
 #ifdef _WIN32
-    FILE *handle = popen("where nvcc", "r");
+  /* Not `where nvcc` through popen(): a process with no console of its own
+   * gets a console WINDOW for the shell popen() starts, on screen for as
+   * long as the command runs -- once per session, when the devices are
+   * first probed. SearchPath looks along the same PATH without a process. */
+  {
+    char found[MAX_PATH];
+    if (SearchPathA(NULL, "nvcc", ".exe", sizeof(found), found, NULL) != 0) {
+      return "nvcc";
+    }
+  }
 #else
+  {
     FILE *handle = popen("which nvcc", "r");
-#endif
     if (handle) {
       char buffer[4096] = {0};
       int len = fread(buffer, 1, sizeof(buffer) - 1, handle);
@@ -928,6 +936,7 @@ const char *cuewCompilerPath(void)
       }
     }
   }
+#endif
 
   return NULL;
 }

@@ -612,12 +612,24 @@ const char *hipewCompilerPath(void)
   }
 #endif
 
-  {
 #ifdef _WIN32
-    FILE *handle = popen("where hipcc", "r");
+  /* Not `where hipcc` through popen(): a process with no console of its own
+   * gets a console WINDOW for the shell popen() starts, on screen for as
+   * long as the command runs. SearchPath looks along the same PATH without
+   * a process; hipcc is a script there, so its usual extensions are tried. */
+  {
+    static const char *const extensions[] = {".exe", ".bat", ".cmd", "", NULL};
+    char found[MAX_PATH];
+    int i;
+    for (i = 0; extensions[i]; ++i) {
+      if (SearchPathA(NULL, "hipcc", extensions[i], sizeof(found), found, NULL) != 0) {
+        return "hipcc";
+      }
+    }
+  }
 #else
+  {
     FILE *handle = popen("which hipcc", "r");
-#endif
     if (handle) {
       char buffer[4096] = {0};
       int len = fread(buffer, 1, sizeof(buffer) - 1, handle);
@@ -628,6 +640,7 @@ const char *hipewCompilerPath(void)
       }
     }
   }
+#endif
 
   return NULL;
 }
