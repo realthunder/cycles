@@ -1021,12 +1021,16 @@ if(WIN32)
   set(PLATFORM_ENV_BUILD "PATH=${PLATFORM_ENV_BUILD_DIRS}")
   unset(_library_paths)
 
-  # Bundle crt libraries
-  set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
-  set(CMAKE_INSTALL_UCRT_LIBRARIES TRUE)
-  set(CMAKE_INSTALL_OPENMP_LIBRARIES FALSE)
-  include(InstallRequiredSystemLibraries)
-  install(FILES ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS} DESTINATION ${PLATFORM_LIB_INSTALL_DIR} COMPONENT Libraries)
+  # Bundle crt libraries, for the standalone app. Embedded, the host owns its
+  # runtime: in a conda package these were 54 copies of what ucrt and
+  # vc14_runtime already install.
+  if(NOT CYCLES_EMBEDDED)
+    set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
+    set(CMAKE_INSTALL_UCRT_LIBRARIES TRUE)
+    set(CMAKE_INSTALL_OPENMP_LIBRARIES FALSE)
+    include(InstallRequiredSystemLibraries)
+    install(FILES ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS} DESTINATION ${PLATFORM_LIB_INSTALL_DIR} COMPONENT Libraries)
+  endif()
 elseif(APPLE)
   if(HOUDINI_FOUND)
     set(PLATFORM_LIB_INSTALL_DIR "houdini/lib")
