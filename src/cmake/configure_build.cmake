@@ -43,8 +43,8 @@ if(APPLE)
   endif()
 
   # Silence warnings with new linker.
-  list(APPEND CMAKE_EXE_LINKER_FLAGS "-Xlinker -no_warn_duplicate_libraries")
-  list(APPEND CMAKE_SHARED_LINKER_FLAGS "-Xlinker -no_warn_duplicate_libraries")
+  string(APPEND CMAKE_EXE_LINKER_FLAGS " -Xlinker -no_warn_duplicate_libraries")
+  string(APPEND CMAKE_SHARED_LINKER_FLAGS " -Xlinker -no_warn_duplicate_libraries")
 elseif(MSVC)
   # NOTE (FreeCAD fork): the else() branch below FORCEs the GLOBAL flag
   # cache variables. That is upstream behaviour -- this file assumes it
