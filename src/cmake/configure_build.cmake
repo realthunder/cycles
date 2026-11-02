@@ -42,9 +42,16 @@ if(APPLE)
     add_definitions("-DMACOSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}")
   endif()
 
-  # Silence warnings with new linker.
-  string(APPEND CMAKE_EXE_LINKER_FLAGS " -Xlinker -no_warn_duplicate_libraries")
-  string(APPEND CMAKE_SHARED_LINKER_FLAGS " -Xlinker -no_warn_duplicate_libraries")
+  # Silence warnings with new linker, where the linker has the option. One
+  # without it fails every link, and so every check_cxx_compiler_flag() after
+  # this. On macOS every one of those failed with conda's ld64 956, the
+  # likely cause, which left CXX_HAS_SSE42 off and the SSE4.2 code without it.
+  include(CheckLinkerFlag)
+  check_linker_flag(CXX "LINKER:-no_warn_duplicate_libraries" CYCLES_LINKER_NO_WARN_DUPLICATE_LIBRARIES)
+  if(CYCLES_LINKER_NO_WARN_DUPLICATE_LIBRARIES)
+    string(APPEND CMAKE_EXE_LINKER_FLAGS " -Xlinker -no_warn_duplicate_libraries")
+    string(APPEND CMAKE_SHARED_LINKER_FLAGS " -Xlinker -no_warn_duplicate_libraries")
+  endif()
 elseif(MSVC)
   # NOTE (FreeCAD fork): the else() branch below FORCEs the GLOBAL flag
   # cache variables. That is upstream behaviour -- this file assumes it

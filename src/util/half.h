@@ -18,6 +18,12 @@
 #  include "util/simd.h"          // IWYU pragma: keep
 #endif
 
+/* The Neon paths below use its intrinsics directly, and simd.h only brings
+ * them in through sse2neon, so a build without WITH_SSE2NEON has none. */
+#if !defined(__KERNEL_GPU__) && (defined(__ARM_NEON) || defined(_M_ARM64))
+#  include <arm_neon.h>
+#endif
+
 CCL_NAMESPACE_BEGIN
 
 /* Half Floats */
