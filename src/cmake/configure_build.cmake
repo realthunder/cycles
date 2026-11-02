@@ -42,10 +42,9 @@ if(APPLE)
     add_definitions("-DMACOSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}")
   endif()
 
-  # Silence warnings with new linker, where the linker has the option. One
-  # without it fails every link, and so every check_cxx_compiler_flag() after
-  # this. On macOS every one of those failed with conda's ld64 956, the
-  # likely cause, which left CXX_HAS_SSE42 off and the SSE4.2 code without it.
+  # Silence warnings with new linker, where the linker has the option: one
+  # without it would fail every link, and every check_cxx_compiler_flag()
+  # after this with it.
   include(CheckLinkerFlag)
   check_linker_flag(CXX "LINKER:-no_warn_duplicate_libraries" CYCLES_LINKER_NO_WARN_DUPLICATE_LIBRARIES)
   if(CYCLES_LINKER_NO_WARN_DUPLICATE_LIBRARIES)
